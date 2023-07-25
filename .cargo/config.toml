@@ -1,0 +1,5 @@
+[env]
+LIBTORCH="/opt/libtorch"
+LD_LIBRARY_PATH="/opt/libtorch/lib:$LD_LIBRARY_PATH"
+PATH="/opt/libtorch/lib:$PATH"
+
