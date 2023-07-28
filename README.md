@@ -118,6 +118,8 @@ Some requirements on utility function: (finished)
 Formulate the utility function: (wip)
 
 $$
+\newcommand{\_}{\textunderscore}
+
 \begin{aligned}
 & u_{\mathscr{A}}(h) = (defender\_state(h).balance = 0) \\
 & u_{\mathscr{D}}(h) = (defender\_state(h).balance \ne 0) \wedge (defender\_tests(h).passed \ne 0)
