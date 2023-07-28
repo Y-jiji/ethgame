@@ -84,22 +84,49 @@ Wed Jul 26 00:17:39 2023
 +-----------------------------------------------------------------------------+
 ```
 
+# To Run
+
+```shell
+LD_LIBRARY_PATH=/opt/libtorch/lib:$LD_LIBRARY_PATH cargo run
+```
+
 # ROADMAP
 
-general description of the game: (wip)
+Who can take an action in this round? (finished)
 - the attacker moves first by calling a function (with computed input) in defender code
-- the defender moves by setting checks on some OP\_CODE positions
-	- if some check is failed: the attacker execution is reverted
-	- if some attacker function is called: then it comes to attacker's round by calling the attacker
+- the defender moves by executing **checks** on some OP\_CODE positions
+	- if some check is failed: current execution is reverted
+	- if some attacker function is called: 
+		- then it comes to attacker's round (from the called function)
 	- if defender reaches a return statement in a function: 
-		- then it comes to attacker's round
+		- then it comes to attacker's round (from the code position where the attacker called last function)
 - when the attacker reaches a return statement in a function: 
-	- then it comes to the defender's round from the position where the defender called this function
+	- then it comes to defender's round (from the code position where the defender called last function)
+	- specially, the game is over if this function is not called by the defender
 
-some trivial implementations: (wip)
-- trigger related actions when a specific piece of code is executed
-- build auxiliary states in execution
-- build operator trees to make the search space prettier
-- compute gas fee
+Some requirements on utility function: (finished)
+- defender: 
+	- ban attackers effectively
+	- on pre-written test cases
+		- execute correctly, don't ban them
+		- less check operations and less memory cost
+- attacker: 
+	- less operations and less memory
+	- lingering in the defender's code longer
+	- can steal money effectively
 
+Formulate the utility function: (wip)
+$$
+	u_{\mathscr{A}}(h) = (defender\_state(h).balance = 0)
+	u_{\mathscr{D}}(h) = (defender\_state(h).balance \ne 0) \wedge (defender\_tests(h).passed \ne 0)
+$$
 
+Make the action space easier to learn:
+- build operator tree instead of direct computation
+- sample by probability
+
+Trivial implementations: (wip)
+- implement an operator tree for the attacker
+- implement check triggering when a piece of defender code is executed
+- implement auxiliary states
+- compute gas fee for the host
