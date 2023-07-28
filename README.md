@@ -116,9 +116,12 @@ Some requirements on utility function: (finished)
 	- can steal money effectively
 
 Formulate the utility function: (wip)
+
 $$
-	u_{\mathscr{A}}(h) = (defender\_state(h).balance = 0)
-	u_{\mathscr{D}}(h) = (defender\_state(h).balance \ne 0) \wedge (defender\_tests(h).passed \ne 0)
+\begin{aligned}
+& u_{\mathscr{A}}(h) = (defender\_state(h).balance = 0) \\
+& u_{\mathscr{D}}(h) = (defender\_state(h).balance \ne 0) \wedge (defender\_tests(h).passed \ne 0)
+\end{aligned}
 $$
 
 Make the action space easier to learn:
