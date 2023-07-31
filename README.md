@@ -120,11 +120,15 @@ Formulate the utility function: (wip)
 $$
 \begin{aligned}
 & u_{\mathscr{A}}(h) = (defender\textunderscore state(h).balance = 0) \\
-& u_{\mathscr{D}}(h) = (defender\textunderscore state(h).balance \ne 0) \wedge (defender\textunderscore tests(h).passed \ne 0)
+& u_{\mathscr{D}}(h) = (defender\textunderscore state(h).balance \ne 0) \\
 \end{aligned}
 $$
 
-Make the action space easier to learn:
+Notes: if the defender's check is both private-to-functions and clean-after-execution, then for any test that don't call one function recursively, the test result will not change. 
+- the concept of private-to-function: if a state is written or read by a check inside a funciton, it cannot be written or read by checks in another function. 
+- the concept of clean-after-execution: after a function returns, the states for the function becomes the same as the state of the function. 
+
+Ideas that make the action space easier to learn:
 - build operator tree instead of direct computation
 - sample by probability
 
