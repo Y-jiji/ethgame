@@ -1,4 +1,5 @@
 use tch::*;
+mod env;
 
 fn main() {
     let d = Device::cuda_if_available();

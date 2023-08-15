@@ -1,0 +1,11 @@
+[package]
+name = "game"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+revm-interpreter = { path = "../interpreter" } # REVM Interpreter
+revm-primitives = { path = "../primitives" }   # REVM Primitives
+tch = "0.13.0"
