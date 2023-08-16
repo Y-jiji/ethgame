@@ -14,7 +14,8 @@ pub type DummyStateDB = InMemoryDB;
 
 pub use db::{Database, DatabaseCommit, InMemoryDB};
 pub use evm::{evm_inner, new, EVM};
-pub use evm_impl::EVMData;
+pub use result::{ResultAndState, ExecutionResult};
+pub use evm_impl::{EVMData, EVMImpl, Transact, CallResult, CreateResult};
 pub use journaled_state::{JournalEntry, JournaledState};
 
 extern crate alloc;

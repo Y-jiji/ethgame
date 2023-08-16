@@ -85,6 +85,7 @@ pub fn calldatasize(interpreter: &mut Interpreter, _host: &mut dyn Host) {
 pub fn callvalue(interpreter: &mut Interpreter, _host: &mut dyn Host) {
     gas!(interpreter, gas::BASE);
     push!(interpreter, interpreter.contract.value);
+    println!("-- value: {:?}", interpreter.contract.value);
 }
 
 pub fn calldatacopy(interpreter: &mut Interpreter, _host: &mut dyn Host) {

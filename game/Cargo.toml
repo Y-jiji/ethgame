@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-revm-interpreter = { path = "../interpreter" } # REVM Interpreter
-revm-primitives = { path = "../primitives" }   # REVM Primitives
+ethers = "2.0.8"
+ouroboros = "0.17.2"
+revm = { path = "../revm" } # REVM Interpreter
 tch = "0.13.0"

@@ -28,6 +28,10 @@ pub fn return_not_found(interpreter: &mut Interpreter, _host: &mut dyn Host) {
 
 #[inline(always)]
 pub fn eval<H: Host, S: Spec>(opcode: u8, interp: &mut Interpreter, host: &mut H) {
+    println!("{}", OpCode::try_from_u8(opcode).unwrap().as_str());
+    println!("-- memory {:?}", interp.memory());
+    println!("-- stack  {:?}", interp.stack());
+    println!("-- pc     {:?}", interp.program_counter());
     match opcode {
         opcode::STOP => return_stop(interp, host),
         opcode::ADD => arithmetic::wrapped_add(interp, host),

@@ -52,7 +52,7 @@ impl<DB: Database> EVM<DB> {
     /// Execute transaction without writing to DB, return change state.
     pub fn transact(&mut self) -> EVMResult<DB::Error> {
         if let Some(db) = self.db.as_mut() {
-            let out = evm_inner::<DB>(&mut self.env, db).transact();
+            let out = evm_inner::<DB>(&mut self.env, db).transact(None);
             out
         } else {
             panic!("Database needs to be set");
@@ -68,7 +68,7 @@ impl<'a, DB: DatabaseRef> EVM<DB> {
             let db = &mut db;
             let out =
                 evm_inner::<RefDBWrapper<DB::Error>>(&mut self.env.clone(), db)
-                    .transact();
+                    .transact(None);
             out
         } else {
             panic!("Database needs to be set");

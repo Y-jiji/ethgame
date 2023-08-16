@@ -29,7 +29,7 @@ pub struct EVMData<'a, DB: Database> {
 }
 
 pub struct EVMImpl<'a, GSPEC: Spec, DB: Database> {
-    data: EVMData<'a, DB>,
+    pub data: EVMData<'a, DB>,
     precompiles: Precompiles,
     _phantomdata: PhantomData<GSPEC>,
 }
@@ -48,7 +48,6 @@ struct PreparedCall {
     checkpoint: JournalCheckpoint,
     contract: Box<Contract>,
 }
-
 
 #[derive(Debug)]
 pub struct CreateResult {
@@ -70,7 +69,7 @@ pub trait Transact<DBError> {
     /// Do transaction.
     /// InstructionResult InstructionResult, Output for call or Address if we are creating
     /// contract, gas spend, gas refunded, State that needs to be applied.
-    fn transact(&mut self) -> EVMResult<DBError>;
+    fn transact(&mut self, interpreter: Option<Box<Interpreter>>) -> EVMResult<DBError>;
 }
 
 impl<'a, GSPEC: Spec, DB: Database> EVMImpl<'a, GSPEC, DB> {
@@ -92,7 +91,7 @@ impl<'a, GSPEC: Spec, DB: Database> EVMImpl<'a, GSPEC, DB> {
 impl<'a, GSPEC: Spec, DB: Database> Transact<DB::Error>
     for EVMImpl<'a, GSPEC, DB>
 {
-    fn transact(&mut self) -> EVMResult<DB::Error> {
+    fn transact(&mut self, interpreter: Option<Box<Interpreter>>) -> EVMResult<DB::Error> {
         self.env().validate_block_env::<GSPEC, DB::Error>()?;
         self.env().validate_tx::<GSPEC>()?;
 
@@ -142,14 +141,13 @@ impl<'a, GSPEC: Spec, DB: Database> Transact<DB::Error>
         caller_account.mark_touch();
 
         let transact_gas_limit = tx_gas_limit - initial_gas_spend;
-
+        
         // call inner handling of call/create
         let (iresult, ret_gas, output) = match self.data.env.tx.transact_to {
             TransactTo::Call(address) => {
                 // Nonce is already checked
                 caller_account.info.nonce =
                     caller_account.info.nonce.checked_add(1).unwrap_or(u64::MAX);
-
                 let (call_result, maybe_interpreter) = self.call(&mut CallInputs {
                     contract: address,
                     transfer: Transfer {
@@ -167,7 +165,7 @@ impl<'a, GSPEC: Spec, DB: Database> Transact<DB::Error>
                         scheme: CallScheme::Call,
                     },
                     is_static: false,
-                });
+                }, interpreter);
                 match maybe_interpreter {
                     None => (call_result.result, call_result.gas, Output::Call(call_result)),
                     Some(interpreter) => return Ok(ResultAndState{ result: ExecutionResult::Stuck{interpreter}, state: HashMap::new() }),
@@ -180,14 +178,13 @@ impl<'a, GSPEC: Spec, DB: Database> Transact<DB::Error>
                     value: tx_value,
                     init_code: tx_data,
                     gas_limit: transact_gas_limit,
-                });
+                }, interpreter);
                 match maybe_interpreter {
                     None => (create_result.result, create_result.gas, Output::Create(create_result)),
                     Some(interpreter) => return Ok(ResultAndState{ result: ExecutionResult::Stuck{interpreter}, state: HashMap::new() }),
                 }
             }
         };
-
         // set gas with gas limit and spend it all. Gas is going to be reimbursed when
         // transaction is returned successfully.
         let mut gas = Gas::new(tx_gas_limit);
@@ -260,7 +257,7 @@ impl<'a, GSPEC: Spec, DB: Database> EVMImpl<'a, GSPEC, DB> {
         }
     }
 
-    fn finalize<SPEC: Spec>(&mut self, gas: &Gas) -> (HashMap<B160, Account>, Vec<Log>, u64, u64) {
+    pub fn finalize<SPEC: Spec>(&mut self, gas: &Gas) -> (HashMap<B160, Account>, Vec<Log>, u64, u64) {
         let caller = self.data.env.tx.caller;
         let coinbase = self.data.env.block.coinbase;
         let (gas_used, gas_refunded) = if crate::USE_GAS {
@@ -420,7 +417,7 @@ impl<'a, GSPEC: Spec, DB: Database> EVMImpl<'a, GSPEC, DB> {
     }
 
     /// EVM create opcode for both initial crate and CREATE and CREATE2 opcodes.
-    fn create(&mut self, inputs: &CreateInputs) -> (CreateResult, Option<Box<Interpreter>>) {
+    pub fn create(&mut self, inputs: &CreateInputs, interpreter: Option<Box<Interpreter>>) -> (CreateResult, Option<Box<Interpreter>>) {
         let res = self.prepare_create(inputs);
 
         let prepared_create = match res {
@@ -429,8 +426,11 @@ impl<'a, GSPEC: Spec, DB: Database> EVMImpl<'a, GSPEC, DB> {
         };
 
         // Create new interpreter and execute initcode
-        let (exit_reason, mut interpreter) =
-            self.run_interpreter(prepared_create.contract, prepared_create.gas.limit(), false);
+        let (exit_reason, mut interpreter) = if let Some(mut interpreter) = interpreter {
+            (interpreter.run::<Self, GSPEC>(self), interpreter)
+        } else {
+            self.run_interpreter(prepared_create.contract, prepared_create.gas.limit(), false)
+        };
 
         // Host error if present on execution
         match exit_reason {
@@ -660,7 +660,7 @@ impl<'a, GSPEC: Spec, DB: Database> EVMImpl<'a, GSPEC, DB> {
     }
 
     /// Main contract call of the EVM.
-    fn call(&mut self, inputs: &CallInputs) -> (CallResult, Option<Box<Interpreter>>) {
+    pub fn call(&mut self, inputs: &CallInputs, interpreter: Option<Box<Interpreter>>) -> (CallResult, Option<Box<Interpreter>>) {
         let res = self.prepare_call(inputs);
 
         let prepared_call = match res {
@@ -672,13 +672,15 @@ impl<'a, GSPEC: Spec, DB: Database> EVMImpl<'a, GSPEC, DB> {
             (self.call_precompile(inputs, prepared_call.gas), None)
         } else if !prepared_call.contract.bytecode.is_empty() {
             // Create interpreter and execute subcall
-            let (exit_reason, interpreter) = self.run_interpreter(
-                prepared_call.contract,
-                prepared_call.gas.limit(),
-                inputs.is_static,
-            );
+            let (exit_reason, interpreter) = interpreter
+                .map(|mut x| (x.run::<Self, GSPEC>(self), x))
+                .unwrap_or_else(|| self.run_interpreter(
+                    prepared_call.contract,
+                    prepared_call.gas.limit(),
+                    inputs.is_static,
+                ));
             if matches!(exit_reason, InstructionResult::Stuck) {
-                (CallResult {
+                return (CallResult {
                     result: exit_reason,
                     gas: interpreter.gas,
                     return_value: interpreter.return_value(),
