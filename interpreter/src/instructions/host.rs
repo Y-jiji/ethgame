@@ -529,10 +529,11 @@ pub fn call_inner<SPEC: Spec>(
             return;
         };
         interpreter.stuck_reason = Call(call_input, out_len, out_offset);
+        interpreter.instruction_result = InstructionResult::Stuck;
     } else {
         // Call host to interact with target contract
         let CallReturn(reason, gas, return_data, out_len, out_offset) = std::mem::replace(&mut interpreter.stuck_reason, Execute) else {
-            panic!("why create is called when the state is neither execute nor call return?")
+            panic!("why call is called when the state is neither execute nor call return?")
         };
 
         interpreter.return_data_buffer = return_data;
