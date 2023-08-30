@@ -1,4 +1,5 @@
 use revm::{primitives::{ShanghaiSpec, Bytes, B160, U256, AccountInfo}, interpreter::{Interpreter, CallInputs, Transfer, CallContext, StuckReason, InstructionResult, Gas, CreateInputs, return_ok}, CallResult, CreateResult, DatabaseCommit};
+use ethers::prelude::BaseContract;
 
 pub struct GameEnvironment<'a> {
     executor: revm::EVMImpl<'a, ShanghaiSpec, revm::InMemoryDB>,
@@ -6,6 +7,7 @@ pub struct GameEnvironment<'a> {
     stuck_state: StuckState,
     pub attacker_account: revm::primitives::B160,
     pub defender_account: revm::primitives::B160,
+    pub abi: BaseContract,
 }
 
 #[derive(Debug)]
@@ -32,6 +34,7 @@ impl<'a> GameEnvironment<'a> {
         attacker_account: revm::primitives::B160,
         attacker_balance: revm::primitives::U256,
         contract_deployment_code: Bytes,
+        abi: BaseContract,
     ) -> Self {
         use revm::EVMImpl;
         use revm::primitives::*;
@@ -44,7 +47,8 @@ impl<'a> GameEnvironment<'a> {
             attacker_account,
             defender_account: B160::zero(),
             executor: EVMImpl::new(db, env, revm::precompile::Precompiles::new(revm::precompile::SpecId::BERLIN).clone()),
-            interpreters: vec![]
+            interpreters: vec![],
+            abi,
         };
         this.executor.data.db.insert_account_info(B160::zero(), AccountInfo{
             balance: U256::MAX, nonce: 1,
@@ -59,15 +63,6 @@ impl<'a> GameEnvironment<'a> {
         }, None);
         println!("{create_result:#?}");
         this.defender_account = create_result.created_address.unwrap();
-        // let (call_result, _interpreter) = this.executor.call(&CallInputs{
-        //     contract: this.defender_account,
-        //     transfer: Transfer { source: B160::zero(), target: this.defender_account, value: U256::MAX },
-        //     input: Bytes::default(),
-        //     gas_limit: 1000000,
-        //     context: CallContext { address: this.defender_account, caller: B160::zero(), code_address: this.defender_account, apparent_value: U256::MAX, scheme: revm::interpreter::CallScheme::Call },
-        //     is_static: false
-        // }, None);
-        // println!("{call_result:#?}");
         let code = Bytes::default();
         this.executor.data.db.insert_account_info(this.attacker_account, AccountInfo { balance: attacker_balance, nonce: 1, code_hash: revm::primitives::keccak256(&code), code: None });
         return this;
@@ -201,12 +196,12 @@ mod test {
         let mut env = Env::default();
         let mut db = InMemoryDB::default();
         let data = hex!("608060405261046a806100136000396000f3fe6080604052600436106100345760003560e01c806327e235e3146100395780633ccfd60b14610076578063d0e30db01461008d575b600080fd5b34801561004557600080fd5b50610060600480360381019061005b91906102ad565b610097565b60405161006d91906102f3565b60405180910390f35b34801561008257600080fd5b5061008b6100af565b005b6100956101f3565b005b60006020528060005260406000206000915090505481565b60008060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050600081116100ff57600080fd5b60003373ffffffffffffffffffffffffffffffffffffffff16826040516101259061033f565b60006040518083038185875af1925050503d8060008114610162576040519150601f19603f3d011682016040523d82523d6000602084013e610167565b606091505b50509050806101ab576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016101a2906103b1565b60405180910390fd5b60008060003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055505050565b346000803373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008282546102419190610400565b92505081905550565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b600061027a8261024f565b9050919050565b61028a8161026f565b811461029557600080fd5b50565b6000813590506102a781610281565b92915050565b6000602082840312156102c3576102c261024a565b5b60006102d184828501610298565b91505092915050565b6000819050919050565b6102ed816102da565b82525050565b600060208201905061030860008301846102e4565b92915050565b600081905092915050565b50565b600061032960008361030e565b915061033482610319565b600082019050919050565b600061034a8261031c565b9150819050919050565b600082825260208201905092915050565b7f4661696c656420746f2073656e64204574686572000000000000000000000000600082015250565b600061039b601483610354565b91506103a682610365565b602082019050919050565b600060208201905081810360008301526103ca8161038e565b9050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b600061040b826102da565b9150610416836102da565b925082820190508082111561042e5761042d6103d1565b5b9291505056fea2646970667358221220b3616bed71d88f1b5fd72ea2bfb498060d234bba17beb056f47e3034bb27281864736f6c63430008120033").to_vec();
-        let mut game = GameEnvironment::new(&mut env, &mut db, B160::random(), U256::from(1000), data.into());
+        let mut json = std::fs::File::open("/home/y-jiji/eth-game/tmp/SillyBank.abi").unwrap();
+        let abi: BaseContract = ethers::abi::Abi::load(&mut json).unwrap().into();
+        let mut game = GameEnvironment::new(&mut env, &mut db, B160::random(), U256::from(1000), data.into(), abi.clone());
         println!("====== players ======");
         println!("Attacker: {:?}", game.attacker_account);
         println!("Defender: {:?}", game.defender_account);
-        let mut json = std::fs::File::open("/home/y-jiji/eth-game/tmp/SillyBank.abi").unwrap();
-        let abi: BaseContract = ethers::abi::Abi::load(&mut json).unwrap().into();
         let input = hex::decode(hex::encode(abi.encode("deposit", ()).unwrap())).unwrap();
         println!("input: {}", hex::encode(&input));
         game.attacker_move(input.into(), U256::from(900), 10000000);
@@ -225,9 +220,5 @@ mod test {
         game.pop_return();
         println!("====== journaled state ======");
         println!("{:#?}", game.executor.data.journaled_state);
-        // println!("====== contracts ======");
-        // println!("{:#?}", db.contracts);
-        // println!("====== accounts ======");
-        // println!("{:#?}", db.accounts);
     }
 }
